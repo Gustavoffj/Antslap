@@ -1,0 +1,284 @@
+-- Anti-Slap Script
+-- Criado para Roblox Slap Battles
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Variáveis de controle
+local antiSlapEnabled = false
+local originalPosition = nil
+local anchorConnection = nil
+
+-- Função para criar a GUI
+local function createGUI()
+    -- Remove GUI existente se houver
+    if LocalPlayer.PlayerGui:FindFirstChild("AntiSlapGUI") then
+        LocalPlayer.PlayerGui:FindFirstChild("AntiSlapGUI"):Destroy()
+    end
+    
+    -- Criar ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AntiSlapGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = LocalPlayer.PlayerGui
+    
+    -- Botão circular principal
+    local mainButton = Instance.new("TextButton")
+    mainButton.Name = "MainButton"
+    mainButton.Size = UDim2.new(0, 80, 0, 80)
+    mainButton.Position = UDim2.new(0.5, -40, 0.1, 0)
+    mainButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+    mainButton.BorderSizePixel = 0
+    mainButton.Text = ""
+    mainButton.Active = true
+    mainButton.Draggable = true
+    mainButton.Parent = screenGui
+    
+    -- Corner para deixar redondo
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = mainButton
+    
+    -- Ícone/Emoji no botão
+    local iconLabel = Instance.new("TextLabel")
+    iconLabel.Name = "Icon"
+    iconLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    iconLabel.Position = UDim2.new(0, 0, 0, 5)
+    iconLabel.BackgroundTransparency = 1
+    iconLabel.Text = "🛡️"
+    iconLabel.TextSize = 32
+    iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    iconLabel.Font = Enum.Font.GothamBold
+    iconLabel.Parent = mainButton
+    
+    -- Label de status
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "Status"
+    statusLabel.Size = UDim2.new(1, 0, 0.35, 0)
+    statusLabel.Position = UDim2.new(0, 0, 0.6, 0)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "OFF"
+    statusLabel.TextSize = 14
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    statusLabel.Font = Enum.Font.GothamBold
+    statusLabel.Parent = mainButton
+    
+    -- Brilho/Stroke para dar destaque
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(150, 30, 30)
+    stroke.Thickness = 3
+    stroke.Parent = mainButton
+    
+    -- Sombra
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ZIndex = -1
+    shadow.Parent = mainButton
+    
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(1, 0)
+    shadowCorner.Parent = shadow
+    
+    return screenGui, mainButton, statusLabel, stroke
+end
+
+-- Função para ativar Anti-Slap
+local function enableAntiSlap()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- Salva a posição original
+    originalPosition = humanoidRootPart.CFrame
+    
+    -- Torna o HumanoidRootPart ancorado
+    humanoidRootPart.Anchored = true
+    
+    -- Cancela qualquer BodyVelocity ou BodyForce
+    for _, obj in pairs(character:GetDescendants()) do
+        if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
+           obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
+            obj:Destroy()
+        end
+    end
+    
+    -- Desativa a física do personagem
+    if character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        humanoid.PlatformStand = true
+    end
+    
+    -- Mantém o personagem ancorado constantemente
+    if anchorConnection then
+        anchorConnection:Disconnect()
+    end
+    
+    anchorConnection = RunService.Heartbeat:Connect(function()
+        if antiSlapEnabled and character and humanoidRootPart and humanoidRootPart.Parent then
+            -- Mantém ancorado
+            if not humanoidRootPart.Anchored then
+                humanoidRootPart.Anchored = true
+            end
+            
+            -- Remove qualquer força aplicada
+            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            
+            -- Remove BodyMovers que possam ser criados
+            for _, obj in pairs(character:GetDescendants()) do
+                if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
+                   obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end)
+    
+    print("✅ Anti-Slap ATIVADO - Você não será empurrado!")
+end
+
+-- Função para desativar Anti-Slap
+local function disableAntiSlap()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        humanoidRootPart.Anchored = false
+        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    end
+    
+    if character:FindFirstChild("Humanoid") then
+        character.Humanoid.PlatformStand = false
+    end
+    
+    if anchorConnection then
+        anchorConnection:Disconnect()
+        anchorConnection = nil
+    end
+    
+    print("❌ Anti-Slap DESATIVADO")
+end
+
+-- Criar a GUI
+local screenGui, mainButton, statusLabel, stroke = createGUI()
+
+-- Função para alternar Anti-Slap
+local function toggleAntiSlap()
+    antiSlapEnabled = not antiSlapEnabled
+    
+    if antiSlapEnabled then
+        -- Ativar
+        mainButton.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
+        stroke.Color = Color3.fromRGB(30, 150, 30)
+        statusLabel.Text = "ON"
+        enableAntiSlap()
+        
+        -- Animação de ativação
+        mainButton:TweenSize(
+            UDim2.new(0, 90, 0, 90),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Elastic,
+            0.3,
+            true
+        )
+        task.wait(0.3)
+        mainButton:TweenSize(
+            UDim2.new(0, 80, 0, 80),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Elastic,
+            0.3,
+            true
+        )
+    else
+        -- Desativar
+        mainButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        stroke.Color = Color3.fromRGB(150, 30, 30)
+        statusLabel.Text = "OFF"
+        disableAntiSlap()
+        
+        -- Animação de desativação
+        mainButton:TweenSize(
+            UDim2.new(0, 70, 0, 70),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Quad,
+            0.2,
+            true
+        )
+        task.wait(0.2)
+        mainButton:TweenSize(
+            UDim2.new(0, 80, 0, 80),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Quad,
+            0.2,
+            true
+        )
+    end
+end
+
+-- Evento do botão
+mainButton.MouseButton1Click:Connect(toggleAntiSlap)
+
+-- Efeito visual ao passar o mouse
+mainButton.MouseEnter:Connect(function()
+    stroke.Thickness = 4
+end)
+
+mainButton.MouseLeave:Connect(function()
+    stroke.Thickness = 3
+end)
+
+-- Reativa o anti-slap quando o personagem respawna
+LocalPlayer.CharacterAdded:Connect(function(character)
+    task.wait(1)
+    if antiSlapEnabled then
+        enableAntiSlap()
+    end
+end)
+
+-- Proteção adicional contra eventos de slap
+local function blockSlapEvents()
+    -- Bloqueia eventos remotos de slap
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    
+    setreadonly(mt, false)
+    
+    mt.__namecall = newcclosure(function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod()
+        
+        -- Bloqueia FireServer de eventos relacionados a slap se anti-slap estiver ativo
+        if antiSlapEnabled and method == "FireServer" then
+            local eventName = self.Name:lower()
+            if eventName:find("slap") or eventName:find("hit") or eventName:find("damage") or eventName:find("knock") then
+                -- Bloqueia o evento
+                return
+            end
+        end
+        
+        return oldNamecall(self, ...)
+    end)
+    
+    setreadonly(mt, true)
+end
+
+-- Tenta aplicar proteção adicional
+pcall(blockSlapEvents)
+
+-- Notificações
+print("✅ 🛡️ Anti-Slap carregado com sucesso!")
+print("🔘 Clique no botão redondo para ativar/desativar")
+print("🎯 Quando ativado, você não será empurrado por nenhum slap!")
+print("📌 O botão é arrastável - posicione onde quiser!")
