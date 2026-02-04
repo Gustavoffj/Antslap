@@ -27,8 +27,8 @@ local function createGUI()
     -- Botão circular principal
     local mainButton = Instance.new("TextButton")
     mainButton.Name = "MainButton"
-    mainButton.Size = UDim2.new(0, 80, 0, 80)
-    mainButton.Position = UDim2.new(0.5, -40, 0.1, 0)
+    mainButton.Size = UDim2.new(0, 60, 0, 60)
+    mainButton.Position = UDim2.new(0.5, -30, 0.1, 0)
     mainButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
     mainButton.BorderSizePixel = 0
     mainButton.Text = ""
@@ -45,10 +45,10 @@ local function createGUI()
     local iconLabel = Instance.new("TextLabel")
     iconLabel.Name = "Icon"
     iconLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    iconLabel.Position = UDim2.new(0, 0, 0, 5)
+    iconLabel.Position = UDim2.new(0, 0, 0, 3)
     iconLabel.BackgroundTransparency = 1
     iconLabel.Text = "🛡️"
-    iconLabel.TextSize = 32
+    iconLabel.TextSize = 24
     iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     iconLabel.Font = Enum.Font.GothamBold
     iconLabel.Parent = mainButton
@@ -60,7 +60,7 @@ local function createGUI()
     statusLabel.Position = UDim2.new(0, 0, 0.6, 0)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Text = "OFF"
-    statusLabel.TextSize = 14
+    statusLabel.TextSize = 12
     statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     statusLabel.Font = Enum.Font.GothamBold
     statusLabel.Parent = mainButton
@@ -98,13 +98,10 @@ local function enableAntiSlap()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return end
     
-    -- Salva a posição original
-    originalPosition = humanoidRootPart.CFrame
+    -- NÃO ancora o personagem - permite movimento
+    humanoidRootPart.Anchored = false
     
-    -- Torna o HumanoidRootPart ancorado
-    humanoidRootPart.Anchored = true
-    
-    -- Cancela qualquer BodyVelocity ou BodyForce
+    -- Cancela qualquer BodyVelocity ou BodyForce inicial
     for _, obj in pairs(character:GetDescendants()) do
         if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
            obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
@@ -112,57 +109,44 @@ local function enableAntiSlap()
         end
     end
     
-    -- Desativa a física do personagem
+    -- Mantém a física normal do personagem
     if character:FindFirstChild("Humanoid") then
         local humanoid = character.Humanoid
-        humanoid.PlatformStand = true
+        humanoid.PlatformStand = false
     end
     
-    -- Mantém o personagem ancorado constantemente
+    -- Monitora e cancela apenas forças de empurrão (slaps)
     if anchorConnection then
         anchorConnection:Disconnect()
     end
     
     anchorConnection = RunService.Heartbeat:Connect(function()
         if antiSlapEnabled and character and humanoidRootPart and humanoidRootPart.Parent then
-            -- Mantém ancorado
-            if not humanoidRootPart.Anchored then
-                humanoidRootPart.Anchored = true
-            end
-            
-            -- Remove qualquer força aplicada
-            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-            
-            -- Remove BodyMovers que possam ser criados
+            -- Remove apenas BodyMovers (criados por slaps)
             for _, obj in pairs(character:GetDescendants()) do
                 if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
                    obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
                     obj:Destroy()
                 end
             end
+            
+            -- Reduz drasticamente a velocidade apenas se for muito alta (slap)
+            local velocity = humanoidRootPart.AssemblyLinearVelocity
+            local speed = velocity.Magnitude
+            
+            -- Se a velocidade for muito alta (indicando um slap), reduz drasticamente
+            if speed > 50 then
+                humanoidRootPart.AssemblyLinearVelocity = velocity * 0.1
+                humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            end
         end
     end)
     
-    print("✅ Anti-Slap ATIVADO - Você não será empurrado!")
+    print("✅ Anti-Slap ATIVADO - Você pode se mover, mas não será empurrado!")
 end
 
 -- Função para desativar Anti-Slap
 local function disableAntiSlap()
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if humanoidRootPart then
-        humanoidRootPart.Anchored = false
-        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-    end
-    
-    if character:FindFirstChild("Humanoid") then
-        character.Humanoid.PlatformStand = false
-    end
-    
     if anchorConnection then
         anchorConnection:Disconnect()
         anchorConnection = nil
@@ -187,7 +171,7 @@ local function toggleAntiSlap()
         
         -- Animação de ativação
         mainButton:TweenSize(
-            UDim2.new(0, 90, 0, 90),
+            UDim2.new(0, 70, 0, 70),
             Enum.EasingDirection.Out,
             Enum.EasingStyle.Elastic,
             0.3,
@@ -195,7 +179,7 @@ local function toggleAntiSlap()
         )
         task.wait(0.3)
         mainButton:TweenSize(
-            UDim2.new(0, 80, 0, 80),
+            UDim2.new(0, 60, 0, 60),
             Enum.EasingDirection.Out,
             Enum.EasingStyle.Elastic,
             0.3,
@@ -210,7 +194,7 @@ local function toggleAntiSlap()
         
         -- Animação de desativação
         mainButton:TweenSize(
-            UDim2.new(0, 70, 0, 70),
+            UDim2.new(0, 50, 0, 50),
             Enum.EasingDirection.Out,
             Enum.EasingStyle.Quad,
             0.2,
@@ -218,7 +202,7 @@ local function toggleAntiSlap()
         )
         task.wait(0.2)
         mainButton:TweenSize(
-            UDim2.new(0, 80, 0, 80),
+            UDim2.new(0, 60, 0, 60),
             Enum.EasingDirection.Out,
             Enum.EasingStyle.Quad,
             0.2,
