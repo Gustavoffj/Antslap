@@ -98,31 +98,35 @@ local function enableAntiSlap()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return end
     
-    -- NÃO ancora o personagem - permite movimento
-    humanoidRootPart.Anchored = false
+    -- Variáveis para rastrear posição
+    local lastPosition = humanoidRootPart.CFrame
+    local slapDetected = false
+    local returnDelay = 0.5 -- Tempo de espera antes de retornar (em segundos)
     
-    -- Cancela qualquer BodyVelocity ou BodyForce inicial
-    for _, obj in pairs(character:GetDescendants()) do
-        if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
-           obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
-            obj:Destroy()
-        end
-    end
-    
-    -- Mantém a física normal do personagem
-    if character:FindFirstChild("Humanoid") then
-        local humanoid = character.Humanoid
-        humanoid.PlatformStand = false
-    end
-    
-    -- Monitora e cancela apenas forças de empurrão (slaps)
+    -- Monitora e detecta slaps
     if anchorConnection then
         anchorConnection:Disconnect()
     end
     
     anchorConnection = RunService.Heartbeat:Connect(function()
-        if antiSlapEnabled and character and humanoidRootPart and humanoidRootPart.Parent then
-            -- Remove apenas BodyMovers (criados por slaps)
+        if not antiSlapEnabled or not character or not humanoidRootPart or not humanoidRootPart.Parent then
+            return
+        end
+        
+        -- Atualiza a última posição quando o player está andando normalmente
+        local velocity = humanoidRootPart.AssemblyLinearVelocity
+        local speed = velocity.Magnitude
+        
+        -- Se a velocidade é normal (player andando), atualiza a posição
+        if speed < 50 and not slapDetected then
+            lastPosition = humanoidRootPart.CFrame
+        end
+        
+        -- Detecta slap (velocidade muito alta)
+        if speed > 50 and not slapDetected then
+            slapDetected = true
+            
+            -- Remove BodyMovers imediatamente
             for _, obj in pairs(character:GetDescendants()) do
                 if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
                    obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
@@ -130,19 +134,43 @@ local function enableAntiSlap()
                 end
             end
             
-            -- Reduz drasticamente a velocidade apenas se for muito alta (slap)
-            local velocity = humanoidRootPart.AssemblyLinearVelocity
-            local speed = velocity.Magnitude
-            
-            -- Se a velocidade for muito alta (indicando um slap), reduz drasticamente
-            if speed > 50 then
-                humanoidRootPart.AssemblyLinearVelocity = velocity * 0.1
-                humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            -- Aguarda um pouco para o efeito visual do slap, depois retorna
+            task.spawn(function()
+                task.wait(returnDelay)
+                
+                if antiSlapEnabled and humanoidRootPart and humanoidRootPart.Parent then
+                    -- Teleporta de volta para onde recebeu o slap
+                    humanoidRootPart.CFrame = lastPosition
+                    
+                    -- Zera a velocidade
+                    humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    
+                    -- Remove qualquer BodyMover restante
+                    for _, obj in pairs(character:GetDescendants()) do
+                        if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
+                           obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
+                            obj:Destroy()
+                        end
+                    end
+                end
+                
+                -- Reseta a detecção após um tempo
+                task.wait(0.5)
+                slapDetected = false
+            end)
+        end
+        
+        -- Remove BodyMovers constantemente
+        for _, obj in pairs(character:GetDescendants()) do
+            if obj:IsA("BodyVelocity") or obj:IsA("BodyForce") or obj:IsA("BodyPosition") or 
+               obj:IsA("BodyGyro") or obj:IsA("BodyThrust") or obj:IsA("BodyAngularVelocity") then
+                obj:Destroy()
             end
         end
     end)
     
-    print("✅ Anti-Slap ATIVADO - Você pode se mover, mas não será empurrado!")
+    print("✅ Anti-Slap ATIVADO - Você voltará para onde recebeu o slap!")
 end
 
 -- Função para desativar Anti-Slap
